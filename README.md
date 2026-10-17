@@ -35,12 +35,15 @@ L'application repose sur une architecture découplée :
 hospital_management/
 │
 ├── frontend/
+│   └── Vue.js 3
 │
 ├── backend/
+│   └── Django REST Framework
 │
-├── docs/
+├── database/
+│   └── PostgreSQL
 │
-└── database/
+└── docs/
 ```
 
 ## Frontend
@@ -53,18 +56,31 @@ frontend/
 ├── modules/
 │   ├── patients/
 │   ├── consultations/
+│   ├── rendezvous/
 │   ├── hospitalisations/
 │   ├── laboratoire/
 │   ├── pharmacie/
 │   ├── stock/
 │   ├── facturation/
+│   ├── paiements/
 │   ├── rapports/
 │   └── administration/
 │
-├── shared/
+├── components/
+│
 ├── layouts/
+│
 ├── router/
-└── assets/
+│
+├── stores/
+│
+├── services/
+│
+├── composables/
+│
+├── assets/
+│
+└── utils/
 ```
 
 ## Backend
@@ -134,16 +150,26 @@ patients/
 patients/
 │
 ├── pages/
+│   ├── PatientListView.vue
+│   ├── PatientCreateView.vue
+│   ├── PatientEditView.vue
+│   └── PatientDetailView.vue
 │
 ├── components/
+│   ├── PatientForm.vue
+│   ├── PatientInfoCard.vue
+│   └── PatientTable.vue
 │
 ├── services/
+│   └── patient.service.js
 │
-├── hooks/
+├── stores/
+│   └── patient.store.js
 │
-├── store/
+├── composables/
+│   └── usePatient.js
 │
-└── routes.jsx
+└── routes.js
 ```
 
 ---
@@ -162,7 +188,7 @@ Mettre la logique métier directement dans :
 
 - les vues Django
 - les contrôleurs API
-- les composants React
+- les composants Vuejs
 
 Exemple :
 
@@ -232,7 +258,7 @@ FacturationService
 ConsultationService
 ```
 
-### Composants React
+### Composants Vuejs
 
 ```text
 PatientList.jsx
@@ -325,7 +351,7 @@ patients-ui
 
 Contient :
 
-- pages React
+- pages Vuejs
 - composants React
 - design
 - navigation
