@@ -1,0 +1,4 @@
+-r base.txt
+# Pilote MySQL (compilation requise sous Linux : libmysqlclient-dev + pkg-config).
+# Inutile pour démarrer : le projet fonctionne avec SQLite en développement.
+mysqlclient>=2.2,<3

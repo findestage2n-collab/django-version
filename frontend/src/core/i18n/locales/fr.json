@@ -1,0 +1,38 @@
+{
+  "app": { "name": "Hospital Management", "logout": "Se déconnecter", "loading": "Chargement…" },
+  "auth": {
+    "title": "Connexion",
+    "username": "Identifiant",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "invalid": "Identifiant ou mot de passe incorrect."
+  },
+  "nav": { "dashboard": "Tableau de bord", "patients": "Patients" },
+  "common": {
+    "search": "Rechercher",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "archive": "Archiver",
+    "create": "Nouveau",
+    "empty": "Aucun résultat.",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "confirmArchive": "Archiver ce dossier ?"
+  },
+  "patients": {
+    "title": "Patients",
+    "new": "Nouveau patient",
+    "numero": "N° dossier",
+    "nom": "Nom",
+    "prenom": "Prénom",
+    "sexe": "Sexe",
+    "male": "Masculin",
+    "female": "Féminin",
+    "dateNaissance": "Date de naissance",
+    "telephone": "Téléphone",
+    "email": "E-mail",
+    "adresse": "Adresse",
+    "duplicate": "Un patient identique existe déjà. Enregistrer quand même ?"
+  }
+}

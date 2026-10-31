@@ -1,0 +1,2 @@
+# Pilote PostgreSQL ; le wheel binaire évite une compilation locale.
+psycopg[binary]>=3.2,<4

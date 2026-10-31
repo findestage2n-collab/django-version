@@ -1,0 +1,80 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13", cache: pip }
+      - run: pip install -r requirements/dev.txt
+      - run: ruff check . && ruff format --check .
+      - run: python manage.py makemigrations --check --dry-run
+        env: { DJANGO_SETTINGS_MODULE: config.settings.test }
+      - run: python -m pytest --cov --cov-fail-under=85
+        env: { DJANGO_SETTINGS_MODULE: config.settings.test }
+      - name: Le contrat OpenAPI versionné doit être à jour
+        run: |
+          python manage.py spectacular --file /tmp/schema.yaml --validate --fail-on-warn
+          diff /tmp/schema.yaml ../contracts/openapi/schema.yaml
+        env: { DJANGO_SETTINGS_MODULE: config.settings.test }
+
+  backend-mysql:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_ROOT_PASSWORD: ci-only, MYSQL_DATABASE: hospital }
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost" --health-interval=10s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13", cache: pip }
+      - run: sudo apt-get update && sudo apt-get install -y libmysqlclient-dev pkg-config
+      - run: pip install -r requirements/dev.txt mysqlclient
+      - run: python -m pytest
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+          TEST_DATABASE_URL: mysql://root:ci-only@127.0.0.1:3306/hospital
+
+  backend-postgres:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: ci-only, POSTGRES_DB: hospital }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d hospital" --health-interval=10s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13", cache: pip }
+      - run: pip install -r requirements/dev.txt -r requirements/postgres.txt
+      - run: python -m pytest
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+          TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/hospital
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - name: Les types TypeScript doivent correspondre au contrat OpenAPI
+        run: npm run api:types && git diff --exit-code src/core/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
