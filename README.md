@@ -1,368 +1,323 @@
-# 🏥 Application de gestion des activités médicales
+# Hospital Management System
 
-## 1. Présentation
+Application de gestion des activités médicales : **monolithe modulaire** Django (API REST) en
+**Clean Architecture** + frontend Vue.js. Fonctionne **sans Internet** (réseau local).
+Une application mobile Flutter consommera plus tard la même API (`/api/v1/`) : elle n'est pas
+à développer maintenant.
 
-**Hospital Management System** est une application web destinée à gérer les activités médicales et administratives d'un établissement de santé.
+| Partie | Technologie |
+|---|---|
+| Backend | Python 3.13, Django 6.0, Django REST Framework, SimpleJWT, drf-spectacular |
+| Frontend web | Vue 3, TypeScript, Vite, Pinia, Vue Router, Tailwind CSS 4, vue-i18n |
+| Mobile (plus tard) | Flutter : voir `mobile/` (notes seulement) |
+| Données | MySQL 8.4 LTS, PostgreSQL ou SQLite (choix par `DATABASE_URL`). Aucun Redis, aucun Celery |
 
-Les modules prévus comprennent :
+## Ordre de travail
 
-- Patients et dossiers médicaux
-- Consultations
-- Rendez-vous
-- Hospitalisations
-- Laboratoire
-- Imagerie médicale
-- Pharmacie
-- Gestion des stocks
-- Facturation
-- Paiements et caisse
-- Utilisateurs, rôles et permissions
-- Statistiques et rapports
-- Journalisation et audit des actions
+1. **Backend** : lire [`docs/05-guide-backend-debutant.md`](docs/05-guide-backend-debutant.md), puis étudier le module `apps/patients/`.
+2. **Frontend** : ensuite seulement.
+3. **Mobile** : plus tard ; l'architecture est déjà compatible.
 
-> **Périmètre à confirmer :** cette liste décrit les modules envisagés. Chaque module devra être précisé dans les spécifications fonctionnelles avant son développement.
-
-## 2. Technologies retenues
-
-| Partie | Technologie | Rôle |
-|---|---|---|
-| Backend | Python + Django 6.0.x | Logique serveur, modèles, règles métier et administration |
-| API | Django REST Framework (DRF) | API REST consommée par le frontend |
-| Frontend | Vue.js 3 | Interface utilisateur |
-| Outil frontend | Vite | Serveur de développement et construction du frontend |
-| CSS | Tailwind CSS, version stable 4.x | Mise en forme et interface responsive |
-| Base de données | MySQL 8.x | Stockage des données applicatives |
-| Gestion du code | Git + GitHub | Historique, branches et revues de code |
-
-
-Les versions exactes devront être verrouillées dans les fichiers de dépendances du projet et mises à jour après vérification de leur compatibilité. Django 6.0 nécessite Python 3.12 ou supérieur. Pour la production, utiliser une version corrective prise en charge et maintenue, et non une version ancienne figée.
-
-Références officielles :
-- [Django — versions et téléchargements](https://www.djangoproject.com/download/)
-- [Django REST Framework — notes de version](https://www.django-rest-framework.org/community/release-notes/)
-- [Vue.js — documentation officielle](https://vuejs.org/guide/)
-- [Tailwind CSS — installation](https://tailwindcss.com/docs/installation)
-- [Vite — guide](https://vite.dev/guide/)
-- [MySQL — documentation](https://dev.mysql.com/doc/)
-
-## 3. Architecture générale
-
-Le frontend Vue.js et le backend Django sont deux applications distinctes qui communiquent via l'API REST. MySQL est la base de données du backend.
+## Structure
 
 ```text
 hospital-management/
-├── frontend/                 # Vue.js 3 + Vite + Tailwind CSS
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   └── vite.config.js
-│
-├── backend/                  # Django + Django REST Framework
-│   ├── config/
-│   ├── apps/
-│   ├── shared/
-│   ├── manage.py
-│   └── requirements.txt
-│
-├── docs/                     # Spécifications, diagrammes et décisions
-├── .gitignore
-└── README.md
+├── backend/        # Django + DRF : config/, core/, apps/<module>/
+├── frontend/       # Vue 3 + TS : src/{app,core,shared,modules}
+├── mobile/         # Flutter (plus tard) : notes d'architecture
+├── contracts/      # openapi/schema.yaml : contrat unique des clients
+├── scripts/offline # installation sans Internet
+├── docs/           # guide débutant, architecture, conventions API, ADR
+├── .github/        # CI + modèle de Pull Request
+└── docker-compose.yml  Makefile  .env.example
 ```
 
-La base de données MySQL est un service séparé : il n'est pas nécessaire de créer un dossier `database/` contenant la base elle-même. Les scripts SQL éventuels, données de démonstration ou fichiers de configuration peuvent être rangés dans un dossier dédié si le projet en a réellement besoin. Les migrations Django restent la référence pour faire évoluer le schéma.
-
-### 3.1 Structure du frontend
+Chaque module backend suit la **Clean Architecture** (voir `docs/01-architecture.md`) :
 
 ```text
-frontend/
-├── public/
-└── src/
-    ├── assets/
-    ├── components/           # Composants réutilisables
-    ├── layouts/              # Layouts de l'application
-    ├── modules/
-    │   ├── patients/
-    │   ├── consultations/
-    │   ├── rendezvous/
-    │   ├── hospitalisations/
-    │   ├── laboratoire/
-    │   ├── imagerie/
-    │   ├── pharmacie/
-    │   ├── stock/
-    │   ├── facturation/
-    │   ├── paiements/
-    │   ├── caisse/
-    │   ├── rapports/
-    │   └── administration/
-    ├── router/               # Routes Vue Router
-    ├── services/             # Appels HTTP vers l'API
-    ├── stores/                # État partagé (Pinia si retenu)
-    ├── composables/          # Fonctions réutilisables Vue
-    ├── utils/
-    ├── App.vue
-    └── main.js
+apps/patients/
+├── domain/          # règles métier en Python pur (entités, erreurs, événements, ports)
+├── application/     # cas d'usage (RegisterPatient, UpdatePatient…)
+├── infrastructure/  # tables Django, repositories : implémentent les ports
+├── api/             # serializers, vues, urls DRF
+├── composition.py   # relie les cas d'usage aux implémentations
+├── public.py        # ce que les autres modules ont le droit d'utiliser
+└── tests/
 ```
 
-Cette organisation est une convention de départ, pas une obligation rigide. Si le projet est petit, éviter de multiplier les dossiers sans besoin concret. Vue Router et Pinia sont des choix recommandés pour la navigation et l'état partagé ; ils doivent être ajoutés explicitement aux dépendances.
+## Démarrage avec Docker (Windows, macOS et Linux)
 
-### 3.2 Structure du backend
+C'est le moyen recommandé pour retrouver le même environnement sur différents systèmes. Il
+faut Docker Desktop avec Compose sous Windows/macOS, ou Docker Engine avec le plugin Compose
+sous Linux. Aucun Python, Node.js ou serveur MySQL n'est nécessaire sur l'ordinateur hôte.
 
-```text
-backend/
-├── config/                   # Paramètres et URLs du projet Django
-├── apps/
-│   ├── authentication/
-│   ├── patients/
-│   ├── consultations/
-│   ├── rendezvous/
-│   ├── hospitalisations/
-│   ├── laboratoire/
-│   ├── imagerie/
-│   ├── pharmacie/
-│   ├── stock/
-│   ├── facturation/
-│   ├── paiements/
-│   ├── caisse/
-│   ├── personnel/
-│   ├── audittrail/
-│   └── rapports/
-├── shared/                   # Utilitaires réellement communs
-├── manage.py
-└── requirements.txt
+1. Clonez le dépôt et ouvrez un terminal à sa racine :
+
+   ```bash
+   git clone https://github.com/findestage2n-collab/django-version.git
+   cd django-version
+   ```
+
+2. Créez `.env` à partir de l'exemple :
+
+   **PowerShell**
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+
+   **macOS / Linux**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Remplacez `DJANGO_SECRET_KEY`, `MYSQL_PASSWORD` et `MYSQL_ROOT_PASSWORD` par des valeurs
+   fortes. Pour générer une clé Django sans installer Python sur l'hôte :
+
+   ```bash
+   docker run --rm python:3.13-slim python -c "import secrets; print(secrets.token_urlsafe(64))"
+   ```
+
+   Copiez la clé affichée dans `.env`. Gardez ce fichier privé : **ne le commitez pas**.
+
+3. Construisez les images et démarrez l'application :
+
+   ```bash
+   docker compose up --build
+   ```
+
+   Au premier démarrage, Docker télécharge les images et dépendances. MySQL démarre, puis le
+   backend attend que la base soit prête, applique automatiquement les migrations et crée les
+   rôles avant de démarrer. Les journaux restent visibles dans ce terminal.
+
+4. Ouvrez :
+   - Frontend : [http://localhost:5173](http://localhost:5173)
+   - Documentation API : [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+   - Administration Django : [http://localhost:8000/admin/](http://localhost:8000/admin/)
+
+   Pour créer un compte administrateur, ouvrez un autre terminal à la racine du projet :
+
+   ```bash
+   docker compose exec backend python manage.py createsuperuser
+   ```
+
+5. Pour arrêter l'application, faites `Ctrl+C`, puis :
+
+   ```bash
+   docker compose down
+   ```
+
+   Les données MySQL sont conservées dans le volume Docker `db_data`. **Ne faites pas**
+   `docker compose down -v` sauf si vous souhaitez supprimer les données. Le port MySQL de
+   l'hôte est `3307` par défaut (modifiable avec `MYSQL_PORT` dans `.env`) pour limiter les
+   conflits avec un MySQL déjà installé.
+
+Cette configuration Compose est destinée au **développement**, pas au déploiement en production.
+Elle monte le code source et lance le serveur de développement Vite/Django.
+
+## Lancer l'application en local (Windows, macOS et Linux)
+
+Le parcours ci-dessous utilise **SQLite** : vous n'avez pas besoin d'installer ou de démarrer
+MySQL. Il faut Python **3.13** (recommandé) et Node.js **22 ou plus récent**. Git est nécessaire
+pour cloner le dépôt. Si ces outils ne sont pas installés, utilisez les pages officielles :
+[Python 3.13](https://www.python.org/downloads/) et [Node.js 22+](https://nodejs.org/).
+Sur Linux, installez Python 3.13 avec le gestionnaire de paquets de votre distribution ou
+`pyenv` si cette version n'est pas proposée. Vérifiez ensuite les commandes :
+
+| Windows PowerShell | macOS / Linux |
+|---|---|
+| `py -3.13 --version` | `python3.13 --version` |
+| `node --version` | `node --version` |
+| `npm --version` | `npm --version` |
+
+`node --version` doit afficher `v22` ou une version supérieure. Les commandes ci-dessous
+s'exécutent depuis un terminal, sauf indication contraire.
+
+### 1. Récupérer le projet et créer la configuration locale
+
+Clonez le dépôt GitHub, puis entrez dans le dossier du projet :
+
+```bash
+git clone https://github.com/findestage2n-collab/django-version.git
+cd django-version
 ```
 
-Chaque application Django doit être ajoutée à la configuration Django (`INSTALLED_APPS`) et posséder ses migrations. Les applications listées sont prévisionnelles : créer uniquement celles dont le périmètre est validé.
+Copiez le fichier d'exemple `.env.example` vers `.env` à la **racine** du projet (au même niveau
+que `docker-compose.yml`).
 
-## 4. Structure d'un module backend
+**Windows PowerShell :**
 
-Pour un module simple, la structure Django standard suffit :
-
-```text
-patients/
-├── migrations/
-├── tests/
-├── admin.py
-├── apps.py
-├── models.py
-├── serializers.py
-├── services.py
-├── urls.py
-└── views.py
+```powershell
+Copy-Item .env.example .env
+notepad .env
 ```
 
-Si un module devient important, il peut être organisé en sous-packages :
+**macOS / Linux :**
 
-```text
-patients/
-├── migrations/
-├── models/
-│   ├── __init__.py
-│   └── patient.py
-├── api/
-│   ├── serializers.py
-│   ├── views.py
-│   └── urls.py
-├── services/
-├── selectors/                # Requêtes de lecture complexes, si nécessaire
-├── validators/
-├── tests/
-├── apps.py
-└── admin.py
+```bash
+cp .env.example .env
+nano .env
 ```
 
-**Règles :**
-- Les modèles décrivent les données, contraintes et relations.
-- Les serializers DRF valident et transforment les données échangées par l'API.
-- Les vues DRF gèrent la requête HTTP, les permissions et la réponse.
-- Les services portent les règles métier lorsqu'elles sont suffisamment complexes ou réutilisées.
-- Les repositories ne sont pas obligatoires : l'ORM Django suffit généralement. En ajouter uniquement si un besoin concret le justifie.
-- Les selectors sont facultatifs et peuvent regrouper des requêtes de lecture complexes.
-- Les signaux Django sont à utiliser avec discernement ; préférer un appel explicite dans le service lorsque cela rend le déroulement plus compréhensible.
-- Les tests doivent couvrir les règles métier, permissions, validations et endpoints importants.
+Dans `.env`, configurez SQLite :
 
-## 5. Structure d'un module frontend
-
-```text
-patients/
-├── pages/
-│   ├── PatientListView.vue
-│   ├── PatientCreateView.vue
-│   ├── PatientEditView.vue
-│   └── PatientDetailView.vue
-├── components/
-│   ├── PatientForm.vue
-│   ├── PatientInfoCard.vue
-│   └── PatientTable.vue
-├── services/
-│   └── patient.service.js
-├── stores/
-│   └── patient.store.js
-├── composables/
-│   └── usePatient.js
-└── routes.js
+```dotenv
+DATABASE_URL=sqlite:///db.sqlite3
 ```
 
-Les composants Vue utilisent l'extension **`.vue`** (et non `.jsx`, qui correspond à une autre manière d'écrire des composants). Les appels HTTP vers Django doivent être centralisés dans des services frontend, plutôt que dispersés dans chaque composant.
+Remplacez aussi `DJANGO_SECRET_KEY=change-me-with-a-long-random-value` par une clé aléatoire.
+Générez-en une avec la commande Python indiquée ci-dessous, puis collez le résultat dans `.env`.
+Ne partagez pas cette clé et ne commitez jamais `.env` (il est ignoré par Git).
 
-## 6. Conventions de développement
+### 2. Installer et préparer le backend Django
 
-### 6.1 Séparation des responsabilités
+Créez l'environnement Python dans `backend/`, activez-le, puis installez les dépendances.
+Dans PowerShell, exécutez :
 
-Éviter de placer toute la logique métier dans une vue API ou un composant Vue. Les opérations simples peuvent rester simples ; les règles métier complexes, sensibles ou réutilisées doivent être isolées dans des services testables.
-
-Exemple simplifié :
-
-```python
-# serializers.py
-from rest_framework import serializers
-from .models import Patient
-
-
-class PatientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Patient
-        fields = "__all__"
-        # En production, préférer une liste explicite des champs exposés.
+```powershell
+cd backend
+py -3.13 --version
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+python -m pip install --upgrade pip
+pip install -r requirements/dev.txt
+python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-```python
-# services.py
-from .models import Patient
+Si PowerShell bloque l'activation, autorisez les scripts uniquement dans ce terminal, puis
+réessayez :
 
-
-class PatientService:
-    @staticmethod
-    def create_patient(validated_data):
-        # Ajouter ici les règles métier nécessaires.
-        return Patient.objects.create(**validated_data)
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
 ```
 
-```python
-# views.py
-from rest_framework import generics
-from .models import Patient
-from .serializers import PatientSerializer
+Dans **macOS / Linux**, exécutez :
 
-
-class PatientListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Patient.objects.all()
-    serializer_class = PatientSerializer
-
-    def perform_create(self, serializer):
-        # Pour un exemple réel, appeler un service si des règles métier
-        # doivent être appliquées. Ne jamais transmettre directement
-        # request.data à la logique métier sans validation.
-        serializer.save()
+```bash
+cd backend
+python3.13 --version
+python3.13 -m venv .venv
+source .venv/bin/activate
+python --version
+python -m pip install --upgrade pip
+pip install -r requirements/dev.txt
+python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-Cet exemple illustre la validation DRF, mais ne constitue pas une implémentation complète. En particulier, `fields = "__all__"` ne doit pas être utilisé sans examen dans une application médicale : choisir explicitement les champs accessibles et appliquer des permissions strictes. Lorsqu'un service crée le patient, il doit recevoir des données validées par le serializer et gérer les règles métier requises.
+Dans les deux cas, vérifiez que `python --version` affiche `Python 3.13.x`. Copiez la clé
+affichée par la dernière commande dans `DJANGO_SECRET_KEY` de `../.env`. Ensuite, toujours dans
+`backend/` et avec l'environnement virtuel activé, préparez la base et les rôles :
 
-### 6.2 Principe de responsabilité unique
-
-Une classe ou fonction doit avoir un rôle clairement délimité. Par exemple, `PatientService` ne devrait pas gérer en même temps les stocks, la facturation et les notifications. Une opération qui touche plusieurs domaines doit coordonner des services spécialisés et, si nécessaire, utiliser une transaction de base de données.
-
-### 6.3 Nommage
-
-- Applications Django et modules : `patients`, `consultations`, `facturation`.
-- Classes Python : `PatientService`, `PatientSerializer`.
-- Fonctions et variables Python : `create_patient`, `patient_id`.
-- Composants Vue : `PatientListView.vue`, `PatientForm.vue`.
-- Fichiers JavaScript : adopter une convention cohérente, par exemple `patient.service.js`.
-- Les noms de routes API doivent suivre une convention cohérente, par exemple `/api/patients/` et `/api/patients/{id}/`.
-
-## 7. Sécurité et données médicales
-
-Les informations médicales sont sensibles. La sécurité doit être intégrée dès le début :
-
-- Authentifier les utilisateurs et appliquer des permissions par rôle et par action.
-- Vérifier les permissions côté serveur sur chaque endpoint ; masquer un bouton dans Vue ne constitue pas une protection.
-- Limiter les champs que chaque rôle peut consulter ou modifier.
-- Ne jamais enregistrer de mots de passe en clair, de secrets ou de clés dans Git.
-- Utiliser des variables d'environnement pour les secrets et la configuration par environnement.
-- Activer HTTPS en production, définir correctement les hôtes autorisés et configurer les cookies et les en-têtes de sécurité.
-- Prévoir des sauvegardes testées, une procédure de restauration et une politique de conservation des données.
-- Journaliser les actions sensibles sans recopier inutilement des informations médicales dans les journaux.
-- Tester les accès croisés entre utilisateurs, patients et services.
-- Utiliser uniquement des données fictives ou anonymisées dans les environnements de développement et de test.
-
-Les règles applicables à la confidentialité, à la conservation et au partage des données doivent être vérifiées selon la réglementation applicable à l'établissement.
-
-## 8. Gestion de Git et revue de code
-
-### Branches recommandées
-
-- `main` : version stable, protégée.
-- `develop` : intégration des fonctionnalités, si l'équipe adopte ce modèle.
-- `feature/<description>` : une fonctionnalité ou une tâche précise.
-- `fix/<description>` : correction d'un défaut.
-- `hotfix/<description>` : correction urgente à partir de la version stable.
-
-Exemples :
-
-```text
-feature/patient-registration
-feature/consultation-list
-fix/patient-validation
+```bash
+python manage.py migrate
+python manage.py seed_roles
+python manage.py createsuperuser
 ```
 
-### Workflow
+La création du superutilisateur est facultative pour consulter l'API, mais nécessaire pour se
+connecter à l'administration Django.
 
-```text
-branche de travail
-       ↓
-commits ciblés
-       ↓
-Pull Request vers develop (si utilisé)
-       ↓
-revue + tests
-       ↓
-fusion dans develop
-       ↓
-validation de la version
-       ↓
-fusion dans main
+### 3. Démarrer le backend
+
+Dans le même terminal, toujours depuis `backend/` :
+
+```bash
+python manage.py runserver
 ```
 
-Ne pas pousser directement sur `main` si la branche est protégée. Une Pull Request doit être examinée et les tests doivent réussir avant la fusion, selon les règles du dépôt.
+Le backend est disponible sur [http://127.0.0.1:8000](http://127.0.0.1:8000). La racine `/`
+n'affiche pas de page ; ouvrez plutôt la documentation API :
+[http://127.0.0.1:8000/api/docs/](http://127.0.0.1:8000/api/docs/).
 
-**Important :** il n'est pas nécessaire de créer trois branches permanentes par module (`patients-model`, `patients-logic`, `patients-ui`). Cela multiplie les branches et complique les intégrations. Créer plutôt des branches temporaires correspondant à une tâche, même si celle-ci traverse plusieurs couches de l'application.
+### 4. Installer et démarrer le frontend
 
-## 9. Qualité et tests
+Ouvrez un **deuxième terminal** à la racine du projet.
 
-Avant une fusion, vérifier au minimum :
+**Windows PowerShell :**
 
-- Tests unitaires et tests API pour les règles métier.
-- Tests des permissions et des rôles.
-- Validations des entrées et gestion des erreurs.
-- Tests des opérations sensibles (facturation, paiements, stock).
-- Vérification du frontend et des parcours utilisateur concernés.
-- Absence de secrets et de données médicales réelles dans le dépôt.
-- Migrations testées sur une base de développement.
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
 
-Les commandes exactes et les outils d'intégration continue seront définis lors de la mise en place du dépôt.
+**macOS / Linux :**
 
-## 10. Mise en route
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-Les procédures d'installation seront ajoutées après la création des fichiers du projet. Elles devront couvrir séparément :
+Ouvrez [http://localhost:5173](http://localhost:5173). Gardez les deux terminaux ouverts :
+un pour Django, l'autre pour Vite. Le frontend transmet les appels API au backend sur le port
+8000.
 
-1. Les prérequis (Python compatible avec Django 6, Node.js compatible avec Vite, MySQL).
-2. La création et l'activation de l'environnement virtuel Python.
-3. L'installation des dépendances backend.
-4. La configuration des variables d'environnement et de MySQL.
-5. L'application des migrations et la création d'un compte administrateur.
-6. L'installation des dépendances frontend.
-7. Le lancement du serveur Django et du serveur Vite.
-8. Les tests et la construction de production.
+### Utiliser MySQL ou PostgreSQL à la place de SQLite (facultatif)
 
-Ne pas publier de mots de passe, de clés secrètes ou de données réelles dans les exemples de configuration.
+Installez et démarrez le serveur de base de données choisi, créez-y une base et un utilisateur,
+puis remplacez `DATABASE_URL` dans `.env` :
 
----
+```dotenv
+# MySQL
+DATABASE_URL=mysql://utilisateur:mot-de-passe@127.0.0.1:3306/hospital
 
-## Historique des décisions
+# PostgreSQL
+DATABASE_URL=postgres://utilisateur:mot-de-passe@127.0.0.1:5432/hospital
+```
 
-- Backend : Django 6 + Django REST Framework.
-- Frontend : Vue.js 3 + Vite.
-- Styles : Tailwind CSS version stable.
-- Base de données prévue : MySQL.
-- Architecture : frontend séparé du backend, communication par API REST.
-- Organisation : modules métier, avec une séparation des responsabilités adaptée à la complexité réelle.
+Depuis `backend/`, avec `.venv` activé, installez le pilote correspondant :
+
+```bash
+pip install -r requirements/mysql.txt
+# ou
+pip install -r requirements/postgres.txt
+```
+
+Puis appliquez les migrations et créez les rôles comme à l'étape 2. Le fichier `docker-compose.yml`
+peut démarrer MySQL avec `docker compose up -d db` (Docker Desktop sur Windows/macOS, Docker Engine
+sur Linux). Changer `DATABASE_URL` ne transfère pas automatiquement les données d'une base à une
+autre.
+
+## Commandes utiles
+
+| Commande | Effet |
+|---|---|
+| `make check` | lint + tests (backend, architecture, frontend) : à lancer avant chaque PR |
+| `make test` | tests backend et frontend |
+| `make schema` | régénère `contracts/openapi/schema.yaml` puis les types TypeScript |
+| `make offline-bundle` | prépare l'installation sur un serveur sans Internet |
+
+## Documentation
+
+1. [`docs/05-guide-backend-debutant.md`](docs/05-guide-backend-debutant.md) : **commencer ici**
+2. [`docs/01-architecture.md`](docs/01-architecture.md) : Clean Architecture, règles, SOLID, évolutivité
+3. [`docs/06-fonctionnement-hors-ligne.md`](docs/06-fonctionnement-hors-ligne.md) : installer sans Internet
+4. [`docs/00-audit-du-readme.md`](docs/00-audit-du-readme.md) : failles de l'ancien README corrigées
+5. [`docs/02-conventions-api.md`](docs/02-conventions-api.md) : contrat HTTP web + mobile
+6. [`docs/03-preparation-flutter.md`](docs/03-preparation-flutter.md) : ce qui est prêt pour le mobile
+7. [`docs/adr/`](docs/adr/) : décisions d'architecture
+
+## Modules
+
+| Module | Préfixe API | Rôle | Dépend de | État |
+|---|---|---|---|---|
+| `accounts` | `/api/v1/auth/` | Comptes, authentification et rôles | - | Implémenté |
+| `audit` | `/api/v1/audit/` | Journalisation et audit | - | Implémenté |
+| `personnel` | `/api/v1/personnel/` | Personnel soignant et administratif | accounts | Squelette |
+| `patients` | `/api/v1/patients/` | Patients et dossiers administratifs | audit | Implémenté |
+| `rendezvous` | `/api/v1/rendez-vous/` | Rendez-vous et planification | patients, personnel | Squelette |
+| `consultations` | `/api/v1/consultations/` | Consultations | patients, personnel, rendezvous, audit | Squelette |
+| `hospitalisations` | `/api/v1/hospitalisations/` | Hospitalisations | patients, personnel, audit | Squelette |
+| `laboratoire` | `/api/v1/laboratoire/` | Laboratoire | patients, consultations, personnel | Squelette |
+| `pharmacie` | `/api/v1/pharmacie/` | Pharmacie | patients, consultations, audit | Squelette |
+| `facturation` | `/api/v1/facturation/` | Facturation | patients, audit | Squelette |
+| `paiements` | `/api/v1/paiements/` | Paiements et caisse | facturation, audit | Squelette |
+| `rapports` | `/api/v1/rapports/` | Statistiques et rapports | patients, consultations, facturation, paiements | Squelette |
+| `notifications` | `/api/v1/notifications/` | Notifications (e-mail, SMS, push mobile) | accounts | Squelette |
+
+Trois modules sont **implémentés comme modèles de référence** (`accounts`, `audit`, `patients`,
+avec tests). Les autres sont des squelettes conformes à la structure standard : leur périmètre
+doit être validé dans les spécifications avant de coder.

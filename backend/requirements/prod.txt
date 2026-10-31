@@ -1,0 +1,6 @@
+-r mysql.txt
+-r postgres.txt
+gunicorn>=26,<27
+# Stockage objet des pièces jointes : décommenter si S3/compatible
+# django-storages[s3]>=1.14
+# sentry-sdk>=2
